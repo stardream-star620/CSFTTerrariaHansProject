@@ -15,10 +15,24 @@ Action中将自动在仓库更新时将汉化与字体内容导入文件中，�
 - 自动工作流生成data.unity3d
 - 自动工作流完成字体修改
 
+## 分支：音译版（`yinyi-zh-translit`）
+
+把游戏里所有能看到的英文按**读音**强行音译成汉字：Cloud → 克劳德，Eye of Cthulhu →
+艾 奥夫 克苏鲁。读出来像英文，看起来像人话，意思完全不对。
+
+- 语言文件由「人工音译语料 + 机器补全」生成，构建脚本见 [tools/yinyi](tools/yinyi/README.md)
+- 语料出处见 [sources/yinyi](sources/yinyi/README.md)（Steam 创意工坊模组《泰拉瑞亚音译版》，作者 HoCha113）
+- 该分支的 Actions 产物名为 `yinyi-result`，替换方式与 Main 分支完全相同（同样只支持 1.4.5.8.5 安卓包）
+- 只改了语言文本，字体字符集未变，因此不需要重新生成 `Font/`
+
+想改某句翻译：编辑 `tools/yinyi/overrides.json` 或 `sources/yinyi/*.json`，然后运行
+`python tools/yinyi/build.py` 重新生成。
+
 ## 特别鸣谢
 - 一只皮皮蛙（参考）
 - 泰拉瑞亚中文wiki（参考）
 - MorenRX（字体方面帮助）
+- HoCha113（音译版语料，《泰拉瑞亚音译版》模组作者）
 
 ## 参与者
 - Cjx

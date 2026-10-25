@@ -1,16 +1,16 @@
 {
 	"Mobile": {
-		"EditControllerMappings": "控制器绑定：",
-		"ControllerDeviceTitle": "控制器：",
-		"EditControllerProfile": "控制器硬件：",
-		"Controller": "控制器",
-		"ControllerShowControlsBannerTitle": "控制旗帜：",
-		"ControllerDisconnected": "请重新连接控制器以继续……"
+		"EditControllerMappings": "科恩特罗尔尔 比恩德英斯:",
+		"ControllerDeviceTitle": "科恩特罗尔尔:",
+		"EditControllerProfile": "科恩特罗尔尔 哈尔德瓦瑞:",
+		"Controller": "科恩特罗尔尔",
+		"ControllerShowControlsBannerTitle": "寇恩特柔欧斯 班哪:",
+		"ControllerDisconnected": "普利塞 瑞科恩内克特 尤尔 科恩特罗尔尔 托 科恩蒂努埃..."
 	},
 	"GameUI": {
-		"ControllerMappingsMenu": "控制器设置"
+		"ControllerMappingsMenu": "科恩特罗尔尔 塞亭斯"
 	},
 	"Tutorial": {
-		"OpenSettings": "[cm:15]设置菜单有一系列的选项可以让你自定义游戏以适应你的游玩风格。如果你觉得很难找到物品栏，你可以在界面选项卡中编辑布局，以及调整界面上几乎所有的东西。你还可以在控制器选项卡中的“修改控制器绑定”里修改所有的按键绑定。"
+		"OpenSettings": "泽 [cm:15] 塞亭斯 梅纽 哈斯 阿恩 阿尔拉伊 奥弗 奥普申斯 托 阿勒洛沃 尤 托 库斯托姆爱兹 泽 加梅 埃斯佩西阿勒利 福尔 尤尔 普拉伊斯蒂尔. 伊弗 尤 菲恩德 伊特 哈尔德 托 西 泽 因文特瑞, 尤 卡恩 艾迪特 泽 拉尤特 弗罗姆 泽 因特菲思 塔布 阿恩德 阿德朱斯特 尼尔利 埃维里斯英 阿波特 泽 因特菲思. 尤 卡恩 阿勒索 切因基 阿尔 尤尔 布特托恩 比恩德英斯 伊恩 泽 科恩特罗尔尔 塔布 阿恩德 艾迪特 科恩特罗尔尔 比恩德英斯."
 	}
 }
