@@ -216,6 +216,16 @@ LABEL_RE = re.compile(r'("Japanese"\s*:\s*)"(?:[^"\\]|\\.)*"')
 
 def label_backup_languages() -> None:
     """Rename the hijacked culture in every language file the pipeline injects."""
+    main_file = os.path.join(ROOT, "zh-Hans.json")
+    if os.path.exists(main_file):
+        raw = open(main_file, "rb").read().decode("utf-8-sig")
+        patched, count = LABEL_RE.subn(
+            lambda m: m.group(1) + json.dumps(LANGUAGE_LABEL, ensure_ascii=False), raw, count=1
+        )
+        if count and patched != raw:
+            with open(main_file, "w", encoding="utf-8", newline="") as fh:
+                fh.write(patched)
+
     for folder in ("backup_en", "backup_else"):
         directory = os.path.join(ROOT, folder)
         if not os.path.isdir(directory):
