@@ -116,6 +116,9 @@ SUFFIX = {
 
 DIGRAPHS = ("ch", "sh", "th", "ph", "wh", "qu", "kn", "wr", "ck", "gh", "dg", "ps")
 
+# Characters that carry no meaning on their own; neighbouring duplicates read badly.
+EPENTHETIC_CHARS = set("".join(CONSONANT.values()) + "".join(CODA.values()))
+
 CLUSTER = {
     "sch": "斯克", "scr": "斯克", "shr": "什", "thr": "斯罗",
     "spr": "斯普", "spl": "斯普", "squ": "斯克", "chr": "克", "phr": "弗",
@@ -238,7 +241,20 @@ def word_to_syllables(word: str) -> str:
     sylls = _split_syllables(w)
     if not sylls:
         return "".join(CONSONANT.get(c, c) for c in w)
-    return "".join(_syllable(o, v) + _coda(c) for o, v, c in sylls)
+    out = []
+    for onset, vowel, coda in sylls:
+        head = _syllable(onset, vowel)
+        tail = _coda(coda)
+        # avoid "克克/斯斯" when a coda and the next onset produce the same character
+        if out and out[-1] and head and out[-1][-1] == head[0] and head[0] in EPENTHETIC_CHARS:
+            head = head[1:]
+        if out and out[-1] and tail and out[-1][-1] == tail[0] and tail[0] in EPENTHETIC_CHARS:
+            tail = tail[1:]
+        out.append(head + tail)
+    joined = "".join(out)
+    while "克克克" in joined:
+        joined = joined.replace("克克克", "克克")
+    return joined
 
 
 class Transliterator:
@@ -269,11 +285,11 @@ class Transliterator:
         out.append(chunk[last:])
         return "".join(out)
 
-    def __call__(self, text: str) -> str:
+    def __call__(self, text: str, phrase: bool = True) -> str:
         if not isinstance(text, str) or not HAS_LATIN.search(text):
             return text
         key = text.strip().lower()
-        if key in self.phrase_memory:
+        if phrase and key in self.phrase_memory:
             return self.phrase_memory[key]
         parts = []
         last = 0

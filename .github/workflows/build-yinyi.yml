@@ -40,6 +40,15 @@ jobs:
             }
           }
           
+      - name: Apply Yinyi Language Slots
+        run: |
+          # 音译版占用 ja-JP 语言槽位，最后覆盖，保证 ja-JP.* 全部生效
+          if (Test-Path "yinyi-extra") {
+            Get-ChildItem -Path "yinyi-extra" -Filter *.json -File | ForEach-Object {
+              Copy-Item $_.FullName -Destination work\ -Force
+            }
+          }
+
       - name: Download Origin File from Release
         uses: actions/github-script@v7
         with:

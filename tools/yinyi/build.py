@@ -123,6 +123,117 @@ def tokens(text: str):
     return sorted(m.group(0) for m in TOKEN_RE.finditer(text))
 
 
+def restore_tokens(zh_ref: str, value: str) -> str:
+    """Re-insert rich-text tags (icons, {$Keys}) the source text dropped.
+
+    The 亚共版 Chinese references the icons; the transliteration starts from the
+    English, which has none.  Each missing tag is parked right after the tag
+    that precedes it in the Chinese, so "{0}[i:58]" stays together.
+    """
+    ref = [(m.start(), m.end(), m.group(0)) for m in TOKEN_RE.finditer(zh_ref)]
+    cur = [(m.start(), m.end(), m.group(0)) for m in TOKEN_RE.finditer(value)]
+    if not ref:
+        return value
+    have, need = {}, {}
+    for _, _, t in cur:
+        have[t] = have.get(t, 0) + 1
+    for _, _, t in ref:
+        need[t] = need.get(t, 0) + 1
+    missing = {t: n - have.get(t, 0) for t, n in need.items() if n > have.get(t, 0)}
+    if not missing:
+        return value
+
+    pos_by_token = {}
+    for start, end, t in cur:
+        pos_by_token.setdefault(t, []).append((start, end))
+
+    inserts, seen, prev = [], {}, None
+    for _, _, t in ref:
+        seen[t] = seen.get(t, 0) + 1
+        if missing.get(t, 0) > 0:
+            if prev is not None and prev in pos_by_token:
+                k = min(seen.get(prev, 1), len(pos_by_token[prev]))
+                inserts.append((pos_by_token[prev][k - 1][1], t))
+                missing[t] -= 1
+            # tags with no anchor are dropped: guessing a position reads worse
+            # than a missing icon
+        prev = t
+
+    result = value
+    for pos, tok in reversed(sorted(inserts, key=lambda item: item[0])):
+        result = result[:pos] + tok + result[pos:]
+    return result
+
+
+HAN_ONLY = re.compile(r"[\u3000-\u303f\u4e00-\u9fff\uff00-\uffef]")
+
+
+def _icon_fragment(line: str) -> str:
+    """Keep the icons/placeholders of a line, drop its Chinese words.
+
+    Only icon-dense lines survive: a line whose Chinese carries the meaning
+    would read as half-translated garbage once the words are removed.
+    """
+    frag = HAN_ONLY.sub("", line)
+    frag = frag.replace("()", "").replace("（）", "").replace("[]", "")
+    frag = re.sub(r"\s{2,}", " ", frag).strip()
+    if "[" not in frag and "{" not in frag:
+        return ""
+    dense = len(re.sub(r"\s", "", frag))
+    total = len(re.sub(r"\s", "", line))
+    if total and dense / total < 0.55:
+        return ""
+    return frag
+
+
+def restore_tokens_by_line(zh_ref: str, value: str) -> str:
+    """Restore tags line by line, keeping 亚共版-only icon rows at the end."""
+    if "\n" not in zh_ref and "\n" not in value:
+        return restore_tokens(zh_ref, value)
+
+    zh_lines, out_lines = zh_ref.split("\n"), value.split("\n")
+    if len(zh_lines) == len(out_lines):
+        return "\n".join(restore_tokens(a, b) for a, b in zip(zh_lines, out_lines))
+
+    if len(zh_lines) > len(out_lines):
+        restored = [
+            restore_tokens(zh, out) if out.strip() else out
+            for zh, out in zip(zh_lines, out_lines)
+        ]
+        extra = [frag for frag in (_icon_fragment(line) for line in zh_lines[len(out_lines):]) if frag]
+        if extra:
+            restored.extend(extra)
+        return "\n".join(restored)
+    return value
+
+
+LANGUAGE_LABEL = "音译版（整活）"
+LANGUAGE_LABEL_EN = "Yinyi (Meme)"
+EXTRA_DIR = os.path.join(ROOT, "yinyi-extra")
+
+LABEL_RE = re.compile(r'("Japanese"\s*:\s*)"(?:[^"\\]|\\.)*"')
+
+
+def label_backup_languages() -> None:
+    """Rename the hijacked culture in every language file the pipeline injects."""
+    for folder in ("backup_en", "backup_else"):
+        directory = os.path.join(ROOT, folder)
+        if not os.path.isdir(directory):
+            continue
+        for name in os.listdir(directory):
+            if not name.endswith(".json"):
+                continue
+            path = os.path.join(directory, name)
+            raw = open(path, "rb").read().decode("utf-8-sig")
+            if '"Japanese"' not in raw:
+                continue
+            label = LANGUAGE_LABEL if name.startswith("zh-Hans") else LANGUAGE_LABEL_EN
+            patched, count = LABEL_RE.subn(lambda m: m.group(1) + json.dumps(label, ensure_ascii=False), raw, count=1)
+            if count and patched != raw:
+                with open(path, "w", encoding="utf-8", newline="") as fh:
+                    fh.write(patched)
+
+
 def main():
     corpus_pairs = []
     for _, mod_name, _ in PAIRS:
@@ -156,9 +267,11 @@ def main():
         "phrases": len(phrase_memory),
         "overrides": len(overrides),
     }
-    total_corpus = total_generated = total_kept = token_issues = 0
+    total_corpus = total_generated = total_kept = total_restored = token_issues = 0
     samples = []
 
+    os.makedirs(EXTRA_DIR, exist_ok=True)
+    written = {}
     for repo_name, en_tree, mod_tree in source_pairs:
         target_path = os.path.join(ROOT, repo_name)
         zh_tree = load_json(target_path)
@@ -177,8 +290,20 @@ def main():
                     break
 
             if isinstance(mod_value, str) and mod_value:
-                value = mod_value
-                total_corpus += 1
+                if (
+                    isinstance(en, str)
+                    and en
+                    and HAS_LATIN.search(en)
+                    and tokens(en)
+                    and tokens(en) != tokens(mod_value)
+                ):
+                    # the corpus dropped/rewrote rich-text tags (icons, {$Keys}):
+                    # rebuild the line word by word so the tags survive
+                    value = polish(tr(en, phrase=False))
+                    total_restored += 1
+                else:
+                    value = mod_value
+                    total_corpus += 1
             elif isinstance(en, str) and en and HAS_LATIN.search(en):
                 value = polish(tr(en))
                 total_generated += 1
@@ -197,15 +322,24 @@ def main():
             if isinstance(en, str) and isinstance(value, str) and value != zh:
                 if tokens(en) != tokens(value) and tokens(value):
                     token_issues += 1
+            if isinstance(zh, str) and isinstance(value, str) and value != zh:
+                value = restore_tokens_by_line(zh, value)
             set_path(out, path, value)
 
+        # the language picker entry for the hijacked culture
+        out.setdefault("Language", {})["Japanese"] = LANGUAGE_LABEL
         text = json.dumps(out, ensure_ascii=False, indent="\t")
         text = text.replace("\n", "\r\n") + "\r\n"
-        with open(target_path, "w", encoding="utf-8", newline="") as fh:
+        extra_name = repo_name.replace("zh-Hans", "ja-JP", 1)
+        with open(os.path.join(EXTRA_DIR, extra_name), "w", encoding="utf-8", newline="") as fh:
             fh.write(text)
+        written[extra_name] = text
+
+    label_backup_languages()
 
     stats.update(
         corpus=total_corpus,
+        restored=total_restored,
         generated=total_generated,
         kept=total_kept,
         token_issues=token_issues,
